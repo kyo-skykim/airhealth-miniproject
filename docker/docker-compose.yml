@@ -1,0 +1,35 @@
+# Local stack for AirHealth.
+#   docker compose -f docker/docker-compose.yml up pipeline   # run pipeline + dashboard
+#   docker compose -f docker/docker-compose.yml up airflow    # local Airflow UI (orchestration demo)
+#
+# Both services share the repo (mounted at /opt/airflow/project) and the local
+# DuckDB warehouse, so this is a faithful local mirror of the cloud pipeline.
+
+services:
+  pipeline:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      BACKEND: duckdb
+      INGEST_MODE: sample
+    volumes:
+      - ..:/opt/airflow/project
+    ports:
+      - "8501:8501"   # Streamlit dashboard
+
+  airflow:
+    image: apache/airflow:2.10.4-python3.11
+    depends_on: [pipeline]
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      _PIP_ADDITIONAL_REQUIREMENTS: >-
+        duckdb pyarrow pandas pydantic pydantic-settings python-dotenv
+        dbt-core dbt-duckdb scikit-learn xgboost joblib
+    volumes:
+      - ..:/opt/airflow/project
+      - ../orchestration/airflow/dags:/opt/airflow/dags
+    ports:
+      - "8080:8080"   # Airflow UI
+    command: bash -lc "airflow db migrate && airflow standalone"

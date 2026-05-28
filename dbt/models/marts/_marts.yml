@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: "Date dimension covering the observed range, with season + weekend flags."
+    columns:
+      - name: date_day
+        description: "Calendar day (primary key)."
+        data_tests: [not_null, unique]
+      - name: season
+        data_tests:
+          - accepted_values:
+              values: ["winter", "spring", "summer", "fall"]
+
+  - name: dim_location
+    description: "Metro reference data enriched with county-level demographics."
+    columns:
+      - name: metro_key
+        description: "Metro identifier (primary key)."
+        data_tests: [not_null, unique]
+      - name: county_fips
+        data_tests: [not_null]
+      - name: population
+        data_tests: [not_null, positive]
+
+  - name: fact_air_quality_daily
+    description: "Daily air-quality + weather metrics per metro. Central time-series fact."
+    columns:
+      - name: air_quality_key
+        description: "Surrogate key (metro_key + observed_date)."
+        data_tests: [not_null, unique]
+      - name: metro_key
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_location')
+              field: metro_key
+      - name: observed_date
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_day
+      - name: pm25
+        data_tests: [not_null]
+
+  - name: mart_health_air_quality
+    description: "County cross-section: pollution + demographics + engineered features + health prevalence. Regression training grain."
+    columns:
+      - name: county_fips
+        data_tests: [not_null, unique]
+      - name: avg_pm25
+        data_tests: [not_null, positive]
+      - name: asthma_prevalence_pct
+        data_tests: [not_null, positive]
