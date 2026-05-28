@@ -1,0 +1,19 @@
+# dbt profiles for both backends. Select with `dbt build --target duckdb|prod`.
+# Values come from env vars so dbt shares the project's .env-driven config.
+airhealth:
+  target: duckdb
+  outputs:
+    duckdb:
+      type: duckdb
+      path: "{{ env_var('DUCKDB_PATH', './data/warehouse.duckdb') }}"
+      schema: analytics
+      threads: 4
+
+    prod:
+      type: bigquery
+      method: service-account
+      project: "{{ env_var('GCP_PROJECT', '') }}"
+      dataset: "{{ env_var('BQ_DATASET_ANALYTICS', 'airhealth_analytics') }}"
+      location: "{{ env_var('BQ_LOCATION', 'US') }}"
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '') }}"
+      threads: 4

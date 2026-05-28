@@ -1,0 +1,27 @@
+name: "airhealth"
+version: "1.0.0"
+config-version: 2
+
+profile: "airhealth"
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+seeds:
+  airhealth:
+    metros:
+      +column_types:
+        metro_key: varchar
+        county_fips: varchar
+        state: varchar
+
+models:
+  airhealth:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table
