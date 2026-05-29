@@ -11,17 +11,22 @@ clean-targets: ["target", "dbt_packages"]
 
 seeds:
   airhealth:
+    +schema: silver
     metros:
       +column_types:
         metro_key: varchar
         county_fips: varchar
         state: varchar
 
+# Medallion architecture:
+#   bronze = raw ingested data (produced by ingestion/ -> the `bronze` schema)
+#   silver = cleaned/typed/conformed + joined to grain (dbt views)
+#   gold   = business-ready dims/facts/marts for DS + DA (dbt tables)
 models:
   airhealth:
-    staging:
+    silver:
       +materialized: view
-    intermediate:
-      +materialized: view
-    marts:
+      +schema: silver
+    gold:
       +materialized: table
+      +schema: gold

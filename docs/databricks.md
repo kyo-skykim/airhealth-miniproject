@@ -7,13 +7,13 @@ backend with `BACKEND=databricks` — no application code changes.
 
 ## How the backend maps
 
-| Layer | Local (DuckDB) | Databricks |
+| Medallion layer | Local (DuckDB) | Databricks |
 |---|---|---|
-| Raw zone | parquet under `./data/raw` | parquet on a UC **Volume** (`/Volumes/airhealth/raw/landing`) |
-| Warehouse | DuckDB views | managed **Delta** tables `airhealth.raw.*` (Spark) |
+| **Bronze** (raw) | parquet `./data/raw` → `bronze` views | parquet on a UC **Volume** (`/Volumes/airhealth/bronze/landing`) → Delta `airhealth.bronze.*` |
+| **Silver** (clean) | `silver` schema views | Delta views/tables `airhealth.silver.*` |
+| **Gold** (serve) | `gold` schema tables | Delta tables `airhealth.gold.*` |
 | Transform | `dbt --target duckdb` | `dbt --target databricks` (SQL warehouse) |
-| Marts | DuckDB tables | Delta tables `airhealth.analytics.*` |
-| DS read/write | DuckDB | `spark.table(...)` / `saveAsTable(...)` |
+| DS read/write (gold) | DuckDB | `spark.table(...)` / `saveAsTable(...)` |
 | Orchestration | Airflow DAG | Workflow Job (`databricks.yml`) |
 | Tracking | none | MLflow (automatic) |
 
@@ -46,7 +46,7 @@ databricks bundle run airhealth_pipeline -t dev
 ## Dashboard
 
 Build a **Databricks AI/BI dashboard** (or Databricks SQL dashboard) directly on
-`airhealth.analytics.*` — the same marts the Streamlit app uses. Suggested tiles
+`airhealth.gold.*` — the same gold tables the Streamlit app uses. Suggested tiles
 mirror the Streamlit tabs: daily PM2.5 trend, AQI category mix, weather↔AQ scatter,
 county asthma-vs-PM2.5 cross-section, and the `mart_pm25_forecast` /
 `mart_asthma_predictions` model-result charts. The Streamlit app can also be hosted

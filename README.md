@@ -13,22 +13,26 @@ across US metros, demonstrating a full modern-data-stack pipeline.
 
 | Discipline | In this project |
 |---|---|
-| **Data Engineering** | Multi-source ingestion w/ retries + schema validation, partitioned parquet raw zone, DuckDB/BigQuery warehouse, **dbt** star schema + tests + docs, **Airflow** orchestration, **Terraform** IaC, Docker, GitHub Actions CI |
-| **Data Science** | PM2.5 time-series forecasting (gradient boosting vs. persistence baseline), county asthma-prevalence regression (cross-validated, interpretable coefficients), predictions written back to the warehouse |
-| **Data Analysis** | Streamlit dashboard (trends, AQI mix, weather↔AQ, health cross-section, model results), a written findings narrative, and a Looker Studio recipe for the cloud backend |
+| **Data Engineering** | Multi-source ingestion w/ retries + schema validation, **medallion architecture (bronze → silver → gold)** in dbt, DuckDB/BigQuery/Databricks warehouse, tests + docs, **Airflow / Databricks Workflows** orchestration, **Terraform** IaC, Docker, GitHub Actions CI |
+| **Data Science** | Reads the **gold** layer: PM2.5 time-series forecasting (gradient boosting vs. persistence baseline) + county asthma-prevalence regression (cross-validated, interpretable), MLflow tracking, predictions written back to gold |
+| **Data Analysis** | Reads the **gold** layer: Streamlit dashboard (trends, AQI mix, weather↔AQ, health cross-section, model results), findings narrative, Looker Studio / Databricks AI-BI recipes |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    A[Public APIs / sample] -->|Python extractors + pydantic| B[Raw zone: partitioned parquet]
-    B -->|load| C[(Warehouse: DuckDB / BigQuery)]
-    C -->|dbt staging→intermediate→marts| D[Star-schema marts]
+    A[Public APIs / sample] -->|extractors + pydantic| B[(BRONZE<br/>raw)]
+    B -->|dbt: stg_ + int_| C[(SILVER<br/>cleaned/conformed)]
+    C -->|dbt: dim_ + fact_ + mart_| D[(GOLD<br/>serving)]
     D --> E[DS: forecast + regression]
-    E -->|predictions| C
-    D --> F[Streamlit / Looker Studio]
-    G[Airflow] -. orchestrates .-> A & B & C & E
+    E -->|predictions| D
+    D --> F[DA: Streamlit / Looker / Databricks AI-BI]
+    G[Airflow / Databricks Workflows] -. orchestrates .-> A & B & C & E
 ```
+
+**Bronze → Silver → Gold.** Ingestion lands raw data in **bronze**; dbt cleans and
+conforms it in **silver**; the **gold** star schema is the single contract that
+both **DS** and **DA** read from (and DS writes predictions back into gold).
 
 See [`docs/architecture.md`](docs/architecture.md) for the data dictionary and layer-by-layer detail.
 
@@ -81,9 +85,9 @@ Set `INGEST_MODE=api` (and provide `OPENAQ_API_KEY` / `CENSUS_API_KEY`) to pull 
 ## Repo layout
 
 ```
-ingestion/      extractors + shared http/io/schema/sample layer + warehouse loader
-dbt/            sources, staging, intermediate, marts, tests, macros, seeds
-ds/             forecasting + regression models, warehouse access, MLflow, runner
+ingestion/      extractors + shared http/io/schema/sample layer + bronze loader
+dbt/            models/silver (stg_+int_) + models/gold (dim_+fact_+mart_), tests, macros, seeds
+ds/             forecasting + regression models (read/write gold), MLflow, runner
 dashboard/      Streamlit app
 orchestration/  Airflow DAG
 databricks/     notebooks (00_setup → 01_ingest → 02_load → 03_train)

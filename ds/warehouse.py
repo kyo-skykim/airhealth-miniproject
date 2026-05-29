@@ -1,7 +1,7 @@
-"""DS data-access layer: read marts from the warehouse, write predictions back.
+"""DS data-access layer: read GOLD marts, write predictions back to GOLD.
 
-Reads through the same marts dbt produces, so the science layer consumes the
-exact contract the analytics layer does. Backend-aware:
+The science layer consumes the same gold tables the analytics/BI layer does, so
+both read one stable contract. Backend-aware:
   * duckdb     (default) — local DuckDB file
   * databricks — Spark / Unity Catalog Delta tables (runs on a cluster)
   * bigquery   — documented path (use google-cloud-bigquery / pandas-gbq)
@@ -15,7 +15,7 @@ from ingestion.common.config import settings
 
 
 def _dbx_table(name: str) -> str:
-    return f"{settings.dbx_catalog}.{settings.dbx_analytics_schema}.{name}"
+    return f"{settings.dbx_catalog}.{settings.dbx_gold_schema}.{name}"
 
 
 def read_mart(name: str) -> pd.DataFrame:
@@ -27,7 +27,7 @@ def read_mart(name: str) -> pd.DataFrame:
 
     if settings.backend == "bigquery":  # pragma: no cover - needs cloud creds
         raise SystemExit(
-            "Reading marts from BigQuery: use google-cloud-bigquery / pandas-gbq with "
+            "Reading gold marts from BigQuery: use google-cloud-bigquery / pandas-gbq with "
             f"project={settings.gcp_project!r}, dataset={settings.bq_dataset_analytics!r}."
         )
 
@@ -35,13 +35,13 @@ def read_mart(name: str) -> pd.DataFrame:
 
     con = duckdb.connect(str(settings.duckdb_path))
     try:
-        return con.execute(f"SELECT * FROM analytics.{name}").df()
+        return con.execute(f"SELECT * FROM gold.{name}").df()
     finally:
         con.close()
 
 
 def write_predictions(df: pd.DataFrame, table: str = "mart_predictions") -> None:
-    """Persist model output back into the analytics schema (reverse-ELT)."""
+    """Persist model output back into the GOLD schema (reverse-ELT)."""
     if settings.backend == "databricks":  # pragma: no cover - runs on a cluster
         from pyspark.sql import SparkSession
 
@@ -55,7 +55,8 @@ def write_predictions(df: pd.DataFrame, table: str = "mart_predictions") -> None
 
     con = duckdb.connect(str(settings.duckdb_path))
     try:
+        con.execute("CREATE SCHEMA IF NOT EXISTS gold")
         con.register("_preds", df)
-        con.execute(f"CREATE OR REPLACE TABLE analytics.{table} AS SELECT * FROM _preds")
+        con.execute(f"CREATE OR REPLACE TABLE gold.{table} AS SELECT * FROM _preds")
     finally:
         con.close()

@@ -1,5 +1,5 @@
 with src as (
-    select * from {{ source('raw', 'air_quality') }}
+    select * from {{ source('bronze', 'air_quality') }}
 )
 select
     cast(metro_key as {{ dbt.type_string() }})   as metro_key,

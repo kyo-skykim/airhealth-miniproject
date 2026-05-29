@@ -3,7 +3,7 @@
 Uses the county cross-section mart. Reports cross-validated R²/RMSE and
 interpretable standardized coefficients (which pollutant/demographic drivers
 matter most). If SHAP is installed, also writes a feature-importance summary.
-Per-county predictions are written to ``analytics.mart_asthma_predictions``.
+Per-county predictions are written to ``gold.mart_asthma_predictions``.
 """
 
 from __future__ import annotations

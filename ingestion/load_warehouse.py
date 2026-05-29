@@ -1,9 +1,10 @@
-"""Load the raw parquet zone into the warehouse's raw schema.
+"""Load the parquet landing zone into the warehouse's BRONZE schema.
 
-DuckDB backend (default): creates a ``raw`` schema of views over the partitioned
-parquet files, so dbt sources read fresh data with no copy step. The BigQuery
-path documents the equivalent ``bq load`` into the raw dataset (run when
-BACKEND=bigquery and GCP creds are present).
+Bronze is the first medallion layer: raw ingested data, as-landed.
+DuckDB backend (default): creates a ``bronze`` schema of views over the
+partitioned parquet files, so dbt sources read fresh data with no copy step.
+Databricks: writes managed Delta tables into ``<catalog>.bronze.*``. The BigQuery
+path documents the equivalent ``bq load`` (run when BACKEND=bigquery).
 """
 
 from __future__ import annotations
@@ -23,17 +24,17 @@ SOURCES = ("air_quality", "weather", "demographics", "health", "county_annual")
 def load_duckdb() -> None:
     settings.duckdb_path.parent.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(str(settings.duckdb_path))
-    con.execute("CREATE SCHEMA IF NOT EXISTS raw")
+    con.execute("CREATE SCHEMA IF NOT EXISTS bronze")
     for source in SOURCES:
         # Absolute path so the view resolves regardless of the caller's cwd
         # (e.g. dbt runs from the dbt/ directory).
         glob = (settings.raw_dir / source).resolve().as_posix() + "/**/*.parquet"
         con.execute(
-            f"CREATE OR REPLACE VIEW raw.{source} AS "
+            f"CREATE OR REPLACE VIEW bronze.{source} AS "
             f"SELECT * FROM read_parquet('{glob}', union_by_name=true)"
         )
-        n = con.execute(f"SELECT count(*) FROM raw.{source}").fetchone()[0]
-        log.info("raw.%s -> %d rows", source, n)
+        n = con.execute(f"SELECT count(*) FROM bronze.{source}").fetchone()[0]
+        log.info("bronze.%s -> %d rows", source, n)
     con.close()
 
 
@@ -47,17 +48,16 @@ def load_bigquery() -> None:  # pragma: no cover - requires cloud creds
 
 
 def load_databricks() -> None:  # pragma: no cover - runs on a Databricks cluster
-    """Read the raw parquet zone with Spark and write managed Delta tables.
+    """Read the parquet landing zone with Spark and write managed Delta tables.
 
-    Creates ``<catalog>.<raw_schema>.<source>`` Delta tables that the
-    dbt-databricks sources read. Run on a cluster where ``DATA_DIR`` points at
-    the Unity Catalog volume the ingestion wrote to
-    (e.g. /Volumes/airhealth/raw/landing).
+    Creates ``<catalog>.bronze.<source>`` Delta tables that the dbt-databricks
+    bronze sources read. Run on a cluster where ``DATA_DIR`` points at the Unity
+    Catalog volume the ingestion wrote to (e.g. /Volumes/airhealth/bronze/landing).
     """
     from pyspark.sql import SparkSession
 
     spark = SparkSession.builder.getOrCreate()
-    cat, schema = settings.dbx_catalog, settings.dbx_raw_schema
+    cat, schema = settings.dbx_catalog, settings.dbx_bronze_schema
     spark.sql(f"CREATE CATALOG IF NOT EXISTS {cat}")
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {cat}.{schema}")
     for source in SOURCES:

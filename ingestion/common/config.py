@@ -41,11 +41,12 @@ class Settings(BaseSettings):
     bq_dataset_analytics: str = Field(default="airhealth_analytics")
     bq_location: str = Field(default="US")
 
-    # Databricks (Unity Catalog + Delta)
+    # Databricks (Unity Catalog + Delta) — medallion schemas
     dbx_catalog: str = Field(default="airhealth")
-    dbx_raw_schema: str = Field(default="raw")
-    dbx_analytics_schema: str = Field(default="analytics")
-    dbx_volume: str = Field(default="landing")  # UC volume for the raw parquet zone
+    dbx_bronze_schema: str = Field(default="bronze")
+    dbx_silver_schema: str = Field(default="silver")
+    dbx_gold_schema: str = Field(default="gold")
+    dbx_volume: str = Field(default="landing")  # UC volume for the bronze parquet zone
 
     @property
     def metro_keys(self) -> list[str]:

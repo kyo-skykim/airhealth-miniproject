@@ -1,5 +1,5 @@
 with src as (
-    select * from {{ source('raw', 'weather') }}
+    select * from {{ source('bronze', 'weather') }}
 )
 select
     cast(metro_key as {{ dbt.type_string() }}) as metro_key,

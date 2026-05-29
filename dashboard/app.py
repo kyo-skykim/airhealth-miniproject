@@ -25,7 +25,7 @@ st.set_page_config(page_title="AirHealth", layout="wide")
 def load(name: str) -> pd.DataFrame:
     con = duckdb.connect(str(settings.duckdb_path), read_only=True)
     try:
-        return con.execute(f"SELECT * FROM analytics.{name}").df()
+        return con.execute(f"SELECT * FROM gold.{name}").df()
     finally:
         con.close()
 
@@ -35,7 +35,7 @@ def table_exists(name: str) -> bool:
     try:
         rows = con.execute(
             "SELECT 1 FROM information_schema.tables "
-            "WHERE table_schema='analytics' AND table_name=?",
+            "WHERE table_schema='gold' AND table_name=?",
             [name],
         ).fetchall()
         return bool(rows)

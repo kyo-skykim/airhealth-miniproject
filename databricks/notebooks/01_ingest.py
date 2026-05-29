@@ -16,7 +16,7 @@ import os
 # via Databricks "files in workspace". Configure the databricks backend:
 os.environ["BACKEND"] = "databricks"
 os.environ["INGEST_MODE"] = "sample"          # set "api" + keys for live data
-os.environ["DATA_DIR"] = "/Volumes/airhealth/raw/landing"
+os.environ["DATA_DIR"] = "/Volumes/airhealth/bronze/landing"
 os.environ["DBX_CATALOG"] = "airhealth"
 
 # COMMAND ----------
@@ -25,4 +25,4 @@ from ingestion.run_ingest import main
 main()
 
 # COMMAND ----------
-# MAGIC %md Raw parquet now under `/Volumes/airhealth/raw/landing/raw/<source>/`.
+# MAGIC %md Raw parquet now under `/Volumes/airhealth/bronze/landing/raw/<source>/`.

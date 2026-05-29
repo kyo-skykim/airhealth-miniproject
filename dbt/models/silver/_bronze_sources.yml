@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Bronze layer — raw ingested data landed by ingestion/ (Delta tables on Databricks, views over parquet on DuckDB)."
+    schema: bronze
+    tables:
+      - name: air_quality
+      - name: weather
+      - name: demographics
+      - name: health
+      - name: county_annual

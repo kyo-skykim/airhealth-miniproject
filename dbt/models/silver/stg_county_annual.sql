@@ -1,5 +1,5 @@
 with src as (
-    select * from {{ source('raw', 'county_annual') }}
+    select * from {{ source('bronze', 'county_annual') }}
 )
 select
     cast(county_fips as {{ dbt.type_string() }})            as county_fips,

@@ -7,15 +7,13 @@
 # COMMAND ----------
 
 catalog = "airhealth"
-raw_schema = "raw"
-analytics_schema = "analytics"
 volume = "landing"
 
 # COMMAND ----------
-
+# Medallion schemas: bronze (raw), silver (cleaned), gold (DS/DA consumption)
 spark.sql(f"CREATE CATALOG IF NOT EXISTS {catalog}")  # noqa: F821
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{raw_schema}")  # noqa: F821
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{analytics_schema}")  # noqa: F821
-spark.sql(f"CREATE VOLUME IF NOT EXISTS {catalog}.{raw_schema}.{volume}")  # noqa: F821
+for schema in ("bronze", "silver", "gold"):
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{schema}")  # noqa: F821
+spark.sql(f"CREATE VOLUME IF NOT EXISTS {catalog}.bronze.{volume}")  # noqa: F821
 
-print(f"Landing volume ready at: /Volumes/{catalog}/{raw_schema}/{volume}")
+print(f"Bronze landing volume ready at: /Volumes/{catalog}/bronze/{volume}")

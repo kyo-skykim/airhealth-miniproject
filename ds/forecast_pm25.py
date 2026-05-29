@@ -2,7 +2,7 @@
 
 Builds lag + calendar + weather features and trains a gradient-boosted model,
 evaluated against a persistence (yesterday's value) baseline on a temporal
-hold-out. Predictions are written back to ``analytics.mart_pm25_forecast``.
+hold-out. Predictions are written back to ``gold.mart_pm25_forecast``.
 """
 
 from __future__ import annotations

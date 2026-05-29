@@ -6,7 +6,7 @@ airhealth:
     duckdb:
       type: duckdb
       path: "{{ env_var('DUCKDB_PATH', './data/warehouse.duckdb') }}"
-      schema: analytics
+      schema: gold   # fallback only; medallion layers set +schema (silver/gold)
       threads: 4
 
     prod:
@@ -24,5 +24,5 @@ airhealth:
       http_path: "{{ env_var('DATABRICKS_HTTP_PATH', '') }}"
       token: "{{ env_var('DATABRICKS_TOKEN', '') }}"
       catalog: "{{ env_var('DBX_CATALOG', 'airhealth') }}"
-      schema: "{{ env_var('DBX_ANALYTICS_SCHEMA', 'analytics') }}"
+      schema: "{{ env_var('DBX_GOLD_SCHEMA', 'gold') }}"  # fallback; +schema sets silver/gold
       threads: 4
