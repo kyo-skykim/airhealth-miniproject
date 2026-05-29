@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # Backends / modes
-    backend: str = Field(default="duckdb")  # duckdb | bigquery
+    backend: str = Field(default="duckdb")  # duckdb | bigquery | databricks
     ingest_mode: str = Field(default="sample")  # sample | api
 
     # Local paths
@@ -34,12 +34,18 @@ class Settings(BaseSettings):
     openaq_api_key: str = Field(default="")
     census_api_key: str = Field(default="")
 
-    # Cloud
+    # Cloud (GCP / BigQuery)
     gcp_project: str = Field(default="")
     gcs_bucket: str = Field(default="")
     bq_dataset_raw: str = Field(default="airhealth_raw")
     bq_dataset_analytics: str = Field(default="airhealth_analytics")
     bq_location: str = Field(default="US")
+
+    # Databricks (Unity Catalog + Delta)
+    dbx_catalog: str = Field(default="airhealth")
+    dbx_raw_schema: str = Field(default="raw")
+    dbx_analytics_schema: str = Field(default="analytics")
+    dbx_volume: str = Field(default="landing")  # UC volume for the raw parquet zone
 
     @property
     def metro_keys(self) -> list[str]:

@@ -18,6 +18,7 @@ from sklearn.model_selection import KFold, cross_val_predict
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
+from ds.tracking import log_run
 from ds.warehouse import read_mart, write_predictions
 
 log = logging.getLogger("ds.regression")
@@ -52,6 +53,12 @@ def run() -> dict:
     metrics = {"cv_r2": round(r2, 3), "cv_rmse": round(rmse, 3), "n": len(df), "std_coefficients": coefs}
     log.info("Asthma regression | cv_r2=%.3f cv_rmse=%.3f", r2, rmse)
     log.info("Standardized coefficients: %s", coefs)
+    log_run(
+        "asthma_regression",
+        params={"model": "Ridge(alpha=1.0)", "features": ",".join(FEATURES)},
+        metrics={"cv_r2": metrics["cv_r2"], "cv_rmse": metrics["cv_rmse"], "n": metrics["n"]},
+        model=model,
+    )
     _maybe_shap(model, X)
     return metrics
 

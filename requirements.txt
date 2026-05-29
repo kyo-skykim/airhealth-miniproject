@@ -10,8 +10,10 @@ python-dotenv==1.0.1
 # Transformation
 dbt-core==1.9.1
 dbt-duckdb==1.9.1
-# dbt-bigquery is installed only when targeting the cloud backend:
-#   pip install dbt-bigquery==1.9.0
+# Cloud adapters — install only for the matching backend:
+#   pip install dbt-bigquery==1.9.0       # BACKEND=bigquery
+#   pip install dbt-databricks==1.9.1     # BACKEND=databricks
+#   pip install mlflow                    # DS experiment tracking (built in on Databricks)
 
 # Data science
 scikit-learn==1.6.0

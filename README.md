@@ -6,7 +6,8 @@ across US metros, demonstrating a full modern-data-stack pipeline.
 
 > **Runs anywhere with one command** — defaults to offline synthetic data + a local
 > DuckDB warehouse, so reviewers need **no cloud account and no API keys**. The same
-> code targets **GCP (BigQuery + GCS + Cloud Composer)** by flipping two env vars.
+> code targets **GCP (BigQuery + GCS + Cloud Composer)** or **Databricks (Delta +
+> Unity Catalog + Workflows + MLflow)** by flipping the `BACKEND` env var.
 
 ## What this demonstrates
 
@@ -59,6 +60,18 @@ make run-local      # same commands, now targeting BigQuery
 # build the Looker Studio report on the analytics dataset (see docs/architecture.md)
 ```
 
+## Running on Databricks
+
+```bash
+# BACKEND=databricks → Delta Lake + Unity Catalog, dbt-databricks, Workflows, MLflow
+databricks bundle deploy -t dev      # deploys the airhealth_pipeline Workflow
+databricks bundle run airhealth_pipeline -t dev
+```
+
+Or run the notebooks in `databricks/notebooks/` (`00_setup` → `01_ingest` →
+`02_load_warehouse` → dbt → `03_train_models`). Full guide:
+[`docs/databricks.md`](docs/databricks.md).
+
 ## Live data instead of synthetic
 
 Set `INGEST_MODE=api` (and provide `OPENAQ_API_KEY` / `CENSUS_API_KEY`) to pull from
@@ -70,12 +83,14 @@ Set `INGEST_MODE=api` (and provide `OPENAQ_API_KEY` / `CENSUS_API_KEY`) to pull 
 ```
 ingestion/      extractors + shared http/io/schema/sample layer + warehouse loader
 dbt/            sources, staging, intermediate, marts, tests, macros, seeds
-ds/             forecasting + regression models, warehouse access, runner
+ds/             forecasting + regression models, warehouse access, MLflow, runner
 dashboard/      Streamlit app
 orchestration/  Airflow DAG
+databricks/     notebooks (00_setup → 01_ingest → 02_load → 03_train)
+databricks.yml  Databricks Asset Bundle (Workflow job)
 infra/          Terraform (GCS + BigQuery, optional Composer)
 docker/         Dockerfile + docker-compose (pipeline + Airflow)
-docs/           architecture + data dictionary + findings
+docs/           architecture + data dictionary + findings + databricks guide
 tests/          unit tests
 ```
 

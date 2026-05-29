@@ -46,9 +46,33 @@ def load_bigquery() -> None:  # pragma: no cover - requires cloud creds
     )
 
 
+def load_databricks() -> None:  # pragma: no cover - runs on a Databricks cluster
+    """Read the raw parquet zone with Spark and write managed Delta tables.
+
+    Creates ``<catalog>.<raw_schema>.<source>`` Delta tables that the
+    dbt-databricks sources read. Run on a cluster where ``DATA_DIR`` points at
+    the Unity Catalog volume the ingestion wrote to
+    (e.g. /Volumes/airhealth/raw/landing).
+    """
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.getOrCreate()
+    cat, schema = settings.dbx_catalog, settings.dbx_raw_schema
+    spark.sql(f"CREATE CATALOG IF NOT EXISTS {cat}")
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {cat}.{schema}")
+    for source in SOURCES:
+        src_dir = (settings.raw_dir / source).resolve().as_posix()
+        df = spark.read.option("recursiveFileLookup", "true").parquet(src_dir)
+        table = f"{cat}.{schema}.{source}"
+        df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(table)
+        log.info("%s -> %d rows", table, df.count())
+
+
 def main() -> None:
     if settings.backend == "bigquery":
         load_bigquery()
+    elif settings.backend == "databricks":
+        load_databricks()
     else:
         load_duckdb()
 

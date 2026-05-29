@@ -1,0 +1,80 @@
+# Databricks Asset Bundle — deploys the AirHealth pipeline as a Workflow (Job).
+# This is the cloud-native equivalent of orchestration/airflow/dags/airhealth_pipeline.py.
+#
+#   databricks bundle validate
+#   databricks bundle deploy -t dev
+#   databricks bundle run airhealth_pipeline -t dev
+#
+# Adjust node_type_id / spark_version for your cloud (AWS/Azure/GCP) and set
+# the warehouse_id variable to a SQL warehouse for the dbt task.
+bundle:
+  name: airhealth
+
+variables:
+  warehouse_id:
+    description: "SQL warehouse id used by the dbt task"
+    default: ""
+  node_type_id:
+    description: "Worker/driver node type (cloud-specific)"
+    default: "i3.xlarge"
+  spark_version:
+    default: "15.4.x-scala2.12"
+
+targets:
+  dev:
+    mode: development
+    default: true
+    # host comes from your Databricks CLI profile / DATABRICKS_HOST
+
+resources:
+  jobs:
+    airhealth_pipeline:
+      name: airhealth_pipeline
+      job_clusters:
+        - job_cluster_key: airhealth_cluster
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            num_workers: 1
+            data_security_mode: SINGLE_USER
+      tasks:
+        - task_key: ingest
+          job_cluster_key: airhealth_cluster
+          notebook_task:
+            notebook_path: ./databricks/notebooks/01_ingest.py
+          libraries:
+            - pypi: { package: "pydantic-settings" }
+
+        - task_key: load_warehouse
+          depends_on: [{ task_key: ingest }]
+          job_cluster_key: airhealth_cluster
+          notebook_task:
+            notebook_path: ./databricks/notebooks/02_load_warehouse.py
+          libraries:
+            - pypi: { package: "pydantic-settings" }
+
+        - task_key: dbt_build
+          depends_on: [{ task_key: load_warehouse }]
+          dbt_task:
+            project_directory: dbt
+            profiles_directory: dbt
+            commands:
+              - "dbt build --target databricks"
+            warehouse_id: ${var.warehouse_id}
+          libraries:
+            - pypi: { package: "dbt-databricks" }
+
+        - task_key: train_models
+          depends_on: [{ task_key: dbt_build }]
+          job_cluster_key: airhealth_cluster
+          notebook_task:
+            notebook_path: ./databricks/notebooks/03_train_models.py
+          libraries:
+            - pypi: { package: "scikit-learn" }
+            - pypi: { package: "xgboost" }
+            - pypi: { package: "pydantic-settings" }
+
+      schedule:
+        quartz_cron_expression: "0 0 6 * * ?"
+        timezone_id: "UTC"
+        pause_status: PAUSED

@@ -2,8 +2,8 @@ with src as (
     select * from {{ source('raw', 'demographics') }}
 )
 select
-    cast(county_fips as varchar)   as county_fips,
-    cast(population as bigint)      as population,
-    cast(median_age as double)     as median_age,
-    cast(median_income as double)  as median_income
+    cast(county_fips as {{ dbt.type_string() }})   as county_fips,
+    cast(population as {{ dbt.type_bigint() }})     as population,
+    cast(median_age as {{ dbt.type_float() }})      as median_age,
+    cast(median_income as {{ dbt.type_float() }})   as median_income
 from src

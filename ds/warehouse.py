@@ -1,8 +1,10 @@
 """DS data-access layer: read marts from the warehouse, write predictions back.
 
 Reads through the same marts dbt produces, so the science layer consumes the
-exact contract the analytics layer does. DuckDB by default; the BigQuery path is
-documented for the cloud backend.
+exact contract the analytics layer does. Backend-aware:
+  * duckdb     (default) — local DuckDB file
+  * databricks — Spark / Unity Catalog Delta tables (runs on a cluster)
+  * bigquery   — documented path (use google-cloud-bigquery / pandas-gbq)
 """
 
 from __future__ import annotations
@@ -12,19 +14,26 @@ import pandas as pd
 from ingestion.common.config import settings
 
 
-def _connect():
+def _dbx_table(name: str) -> str:
+    return f"{settings.dbx_catalog}.{settings.dbx_analytics_schema}.{name}"
+
+
+def read_mart(name: str) -> pd.DataFrame:
+    if settings.backend == "databricks":  # pragma: no cover - runs on a cluster
+        from pyspark.sql import SparkSession
+
+        spark = SparkSession.builder.getOrCreate()
+        return spark.table(_dbx_table(name)).toPandas()
+
     if settings.backend == "bigquery":  # pragma: no cover - needs cloud creds
         raise SystemExit(
             "Reading marts from BigQuery: use google-cloud-bigquery / pandas-gbq with "
             f"project={settings.gcp_project!r}, dataset={settings.bq_dataset_analytics!r}."
         )
+
     import duckdb
 
-    return duckdb.connect(str(settings.duckdb_path))
-
-
-def read_mart(name: str) -> pd.DataFrame:
-    con = _connect()
+    con = duckdb.connect(str(settings.duckdb_path))
     try:
         return con.execute(f"SELECT * FROM analytics.{name}").df()
     finally:
@@ -33,7 +42,18 @@ def read_mart(name: str) -> pd.DataFrame:
 
 def write_predictions(df: pd.DataFrame, table: str = "mart_predictions") -> None:
     """Persist model output back into the analytics schema (reverse-ELT)."""
-    con = _connect()
+    if settings.backend == "databricks":  # pragma: no cover - runs on a cluster
+        from pyspark.sql import SparkSession
+
+        spark = SparkSession.builder.getOrCreate()
+        spark.createDataFrame(df).write.mode("overwrite").option(
+            "overwriteSchema", "true"
+        ).saveAsTable(_dbx_table(table))
+        return
+
+    import duckdb
+
+    con = duckdb.connect(str(settings.duckdb_path))
     try:
         con.register("_preds", df)
         con.execute(f"CREATE OR REPLACE TABLE analytics.{table} AS SELECT * FROM _preds")

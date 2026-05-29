@@ -14,6 +14,7 @@ import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error
 
+from ds.tracking import log_run
 from ds.warehouse import read_mart, write_predictions
 
 log = logging.getLogger("ds.forecast")
@@ -71,6 +72,12 @@ def run() -> dict:
     log.info("PM2.5 forecast | %s", metrics)
     if skill <= 0:
         log.warning("Model did not beat the persistence baseline (skill=%.3f).", skill)
+    log_run(
+        "pm25_forecast",
+        params={"model": "HistGradientBoostingRegressor", "features": ",".join(FEATURES)},
+        metrics=metrics,
+        model=model,
+    )
     return metrics
 
 
