@@ -1,6 +1,6 @@
 """Ingestion entrypoint: extract -> validate -> write partitioned parquet raw zone.
 
-    python -m ingestion.run_ingest            # uses .env (sample mode, duckdb)
+    python -m ingestion.run_ingest            # uses .env (sample mode)
     INGEST_MODE=api python -m ingestion.run_ingest
 
 Time-series sources (air_quality, weather) are partitioned by month to mirror a
@@ -44,7 +44,7 @@ def _write_by_month(source: str, records: list[BaseModel]) -> int:
 def main() -> None:
     mode = settings.ingest_mode
     metros = get_metros(settings.metro_keys)
-    log.info("Ingest start | mode=%s backend=%s metros=%s", mode, settings.backend, settings.metro_keys)
+    log.info("Ingest start | mode=%s metros=%s", mode, settings.metro_keys)
 
     aq = fetch_air_quality(metros, settings.start_date, settings.end_date, mode)
     wx = fetch_weather(metros, settings.start_date, settings.end_date, mode)

@@ -17,29 +17,21 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # Backends / modes
-    backend: str = Field(default="duckdb")  # duckdb | bigquery | databricks
+    # Ingestion mode
     ingest_mode: str = Field(default="sample")  # sample | api
 
-    # Local paths
+    # Landing-zone path for the ingested parquet. On Databricks set this to the
+    # bronze Unity Catalog volume, e.g. /Volumes/airhealth/bronze/landing.
     data_dir: Path = Field(default=Path("./data"))
-    duckdb_path: Path = Field(default=Path("./data/warehouse.duckdb"))
 
     # Scope
     metros: str = Field(default="los_angeles,new_york,chicago,houston,phoenix")
     start_date: date = Field(default=date(2023, 1, 1))
     end_date: date = Field(default=date(2023, 12, 31))
 
-    # API keys
+    # API keys (only needed when INGEST_MODE=api)
     openaq_api_key: str = Field(default="")
     census_api_key: str = Field(default="")
-
-    # Cloud (GCP / BigQuery)
-    gcp_project: str = Field(default="")
-    gcs_bucket: str = Field(default="")
-    bq_dataset_raw: str = Field(default="airhealth_raw")
-    bq_dataset_analytics: str = Field(default="airhealth_analytics")
-    bq_location: str = Field(default="US")
 
     # Databricks (Unity Catalog + Delta) — medallion schemas
     dbx_catalog: str = Field(default="airhealth")

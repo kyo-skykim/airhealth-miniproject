@@ -1,8 +1,8 @@
-"""IO layer: write validated records to the raw zone (local parquet or GCS).
+"""IO layer: write validated records as partitioned parquet to the landing zone.
 
-The same `write_records` call works for the local DuckDB backend (writes
-partitioned parquet under DATA_DIR) and the cloud backend (writes the same
-parquet layout to GCS), so extractor code never branches on backend.
+Writes under ``DATA_DIR`` — a local path for dev/CI, or the bronze Unity Catalog
+volume (e.g. /Volumes/airhealth/bronze/landing) on Databricks. ``load_warehouse``
+then exposes these as the bronze Delta tables.
 """
 
 from __future__ import annotations
@@ -32,12 +32,6 @@ def write_records(source: str, partition: str, records: list[BaseModel]) -> str:
         return ""
 
     table = _records_to_table(records)
-
-    if settings.backend == "bigquery" and settings.gcs_bucket:
-        uri = f"gs://{settings.gcs_bucket}/raw/{source}/dt={partition}/data.parquet"
-        pq.write_table(table, uri)  # pyarrow uses gcsfs when available
-        log.info("Wrote %d records -> %s", len(records), uri)
-        return uri
 
     path: Path = settings.raw_path(source, partition)
     path.parent.mkdir(parents=True, exist_ok=True)

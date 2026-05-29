@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  pipeline:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,18 +27,10 @@ jobs:
       - name: Unit tests
         run: pytest
 
-      - name: Run pipeline (sample mode, DuckDB)
+      # The warehouse (Delta) + dbt transforms + models run on Databricks.
+      # CI validates that ingestion produces valid parquet in sample mode.
+      - name: Ingestion smoke (sample mode -> parquet)
         run: |
           cp .env.example .env
           python -m ingestion.run_ingest
-          python -m ingestion.load_warehouse
-
-      - name: dbt build + test
-        working-directory: dbt
-        env:
-          DUCKDB_PATH: ${{ github.workspace }}/data/warehouse.duckdb
-          DBT_PROFILES_DIR: .
-        run: dbt build
-
-      - name: Train models
-        run: python -m ds.run_models
+          test -f data/raw/county_annual/dt=static/data.parquet

@@ -1,28 +1,14 @@
-# dbt profiles for both backends. Select with `dbt build --target duckdb|prod`.
-# Values come from env vars so dbt shares the project's .env-driven config.
+# dbt profile — Databricks (Delta + Unity Catalog). Values come from env vars.
+# Medallion layers set their own +schema (silver/gold); the schema below is the
+# fallback for anything without an explicit +schema.
 airhealth:
-  target: duckdb
+  target: databricks
   outputs:
-    duckdb:
-      type: duckdb
-      path: "{{ env_var('DUCKDB_PATH', './data/warehouse.duckdb') }}"
-      schema: gold   # fallback only; medallion layers set +schema (silver/gold)
-      threads: 4
-
-    prod:
-      type: bigquery
-      method: service-account
-      project: "{{ env_var('GCP_PROJECT', '') }}"
-      dataset: "{{ env_var('BQ_DATASET_ANALYTICS', 'airhealth_analytics') }}"
-      location: "{{ env_var('BQ_LOCATION', 'US') }}"
-      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '') }}"
-      threads: 4
-
     databricks:
       type: databricks
       host: "{{ env_var('DATABRICKS_HOST', '') }}"
       http_path: "{{ env_var('DATABRICKS_HTTP_PATH', '') }}"
       token: "{{ env_var('DATABRICKS_TOKEN', '') }}"
       catalog: "{{ env_var('DBX_CATALOG', 'airhealth') }}"
-      schema: "{{ env_var('DBX_GOLD_SCHEMA', 'gold') }}"  # fallback; +schema sets silver/gold
+      schema: "{{ env_var('DBX_GOLD_SCHEMA', 'gold') }}"
       threads: 4

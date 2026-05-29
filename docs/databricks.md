@@ -1,25 +1,20 @@
 # Running AirHealth on Databricks
 
-The same pipeline runs on Databricks with **Delta Lake + Unity Catalog** for the
+AirHealth runs on Databricks with **Delta Lake + Unity Catalog** for the medallion
 warehouse, **dbt-databricks** for transformations, **Databricks Workflows** for
-orchestration (replacing Airflow) and **MLflow** for model tracking. Flip the
-backend with `BACKEND=databricks` — no application code changes.
+orchestration and **MLflow** for model tracking.
 
-## How the backend maps
+## Medallion layers (Unity Catalog)
 
-| Medallion layer | Local (DuckDB) | Databricks |
+| Layer | Location | Built by |
 |---|---|---|
-| **Bronze** (raw) | parquet `./data/raw` → `bronze` views | parquet on a UC **Volume** (`/Volumes/airhealth/bronze/landing`) → Delta `airhealth.bronze.*` |
-| **Silver** (clean) | `silver` schema views | Delta views/tables `airhealth.silver.*` |
-| **Gold** (serve) | `gold` schema tables | Delta tables `airhealth.gold.*` |
-| Transform | `dbt --target duckdb` | `dbt --target databricks` (SQL warehouse) |
-| DS read/write (gold) | DuckDB | `spark.table(...)` / `saveAsTable(...)` |
-| Orchestration | Airflow DAG | Workflow Job (`databricks.yml`) |
-| Tracking | none | MLflow (automatic) |
+| **Bronze** (raw) | parquet on the UC **Volume** `/Volumes/airhealth/bronze/landing` → Delta `airhealth.bronze.*` | `ingestion/` + `load_warehouse.py` (Spark) |
+| **Silver** (clean) | Delta views `airhealth.silver.*` | dbt `models/silver/` |
+| **Gold** (serve) | Delta tables `airhealth.gold.*` | dbt `models/gold/` + `ds/` |
+| Tracking | MLflow (automatic) | `ds/` |
 
-Portability is handled by dbt cross-database type macros (`dbt.type_string()`,
-`dbt.type_float()`, …) and `target.type` branching in `dim_date.sql`, so the same
-models compile on DuckDB, BigQuery and Spark.
+dbt cross-database type macros (`dbt.type_string()`, `dbt.type_float()`, …) keep
+the SQL clean and portable across Spark.
 
 ## Option A — Notebooks (interactive, simplest)
 

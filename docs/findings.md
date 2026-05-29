@@ -2,7 +2,8 @@
 
 > Results below are from the default **synthetic sample dataset** (5 focus metros for the
 > daily time-series; a 150-county national cross-section for the health model). Re-run with
-> `INGEST_MODE=api` for real-world figures. Numbers are reproducible via `make run-local`.
+> `INGEST_MODE=api` for real-world figures. Numbers are reproducible by running the
+> `airhealth_pipeline` Workflow on Databricks (ingest → load → dbt → train).
 
 ## 1. Air-quality patterns
 - PM2.5 shows clear **seasonality** (winter inversion peaks, summer ozone), strongest in the

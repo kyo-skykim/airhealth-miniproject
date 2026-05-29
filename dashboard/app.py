@@ -1,17 +1,20 @@
 """AirHealth Streamlit dashboard (the Data Analysis layer).
 
-Reads the dbt marts + DS prediction tables from the warehouse and presents:
+Reads the GOLD Delta tables (+ DS prediction tables) from Databricks via the
+Databricks SQL connector and presents:
   * daily PM2.5 trends and AQI category mix per metro
   * weather vs. air-quality relationships
   * the county-level asthma vs. pollution cross-section
   * model results (forecast actual-vs-predicted, regression drivers)
 
-Run:  streamlit run dashboard/app.py
+Connects with env vars DATABRICKS_HOST / DATABRICKS_HTTP_PATH / DATABRICKS_TOKEN.
+(Can also be hosted on Databricks Apps.)  Run:  streamlit run dashboard/app.py
 """
 
 from __future__ import annotations
 
-import duckdb
+import os
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -20,31 +23,36 @@ from ingestion.common.config import settings
 
 st.set_page_config(page_title="AirHealth", layout="wide")
 
+GOLD = f"{settings.dbx_catalog}.{settings.dbx_gold_schema}"
+
+
+def _query(sql: str) -> pd.DataFrame:
+    from databricks import sql
+
+    with sql.connect(
+        server_hostname=os.environ["DATABRICKS_HOST"].replace("https://", ""),
+        http_path=os.environ["DATABRICKS_HTTP_PATH"],
+        access_token=os.environ["DATABRICKS_TOKEN"],
+    ) as conn, conn.cursor() as cur:
+        cur.execute(sql)
+        return cur.fetchall_arrow().to_pandas()
+
 
 @st.cache_data
 def load(name: str) -> pd.DataFrame:
-    con = duckdb.connect(str(settings.duckdb_path), read_only=True)
-    try:
-        return con.execute(f"SELECT * FROM gold.{name}").df()
-    finally:
-        con.close()
+    return _query(f"SELECT * FROM {GOLD}.{name}")
 
 
 def table_exists(name: str) -> bool:
-    con = duckdb.connect(str(settings.duckdb_path), read_only=True)
-    try:
-        rows = con.execute(
-            "SELECT 1 FROM information_schema.tables "
-            "WHERE table_schema='gold' AND table_name=?",
-            [name],
-        ).fetchall()
-        return bool(rows)
-    finally:
-        con.close()
+    df = _query(
+        f"SELECT 1 FROM {settings.dbx_catalog}.information_schema.tables "
+        f"WHERE table_schema='{settings.dbx_gold_schema}' AND table_name='{name}'"
+    )
+    return not df.empty
 
 
 st.title("🌬️ AirHealth — Air Quality & Respiratory Health")
-st.caption("Public-health/climate analytics platform · DuckDB + dbt + scikit-learn")
+st.caption("Public-health/climate analytics platform · Databricks (Delta) + dbt + scikit-learn")
 
 fact = load("fact_air_quality_daily")
 fact["observed_date"] = pd.to_datetime(fact["observed_date"])

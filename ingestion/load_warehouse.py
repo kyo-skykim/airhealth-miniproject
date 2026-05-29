@@ -1,17 +1,14 @@
-"""Load the parquet landing zone into the warehouse's BRONZE schema.
+"""Load the parquet landing zone into the BRONZE Delta schema (Databricks).
 
-Bronze is the first medallion layer: raw ingested data, as-landed.
-DuckDB backend (default): creates a ``bronze`` schema of views over the
-partitioned parquet files, so dbt sources read fresh data with no copy step.
-Databricks: writes managed Delta tables into ``<catalog>.bronze.*``. The BigQuery
-path documents the equivalent ``bq load`` (run when BACKEND=bigquery).
+Bronze is the first medallion layer: raw ingested data, as-landed. This reads
+the partitioned parquet the ingestion wrote (to a Unity Catalog volume) with
+Spark and writes managed Delta tables into ``<catalog>.bronze.*`` that the
+dbt-databricks bronze sources read. Runs on a Databricks cluster.
 """
 
 from __future__ import annotations
 
 import logging
-
-import duckdb
 
 from ingestion.common.config import settings
 
@@ -21,39 +18,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 SOURCES = ("air_quality", "weather", "demographics", "health", "county_annual")
 
 
-def load_duckdb() -> None:
-    settings.duckdb_path.parent.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect(str(settings.duckdb_path))
-    con.execute("CREATE SCHEMA IF NOT EXISTS bronze")
-    for source in SOURCES:
-        # Absolute path so the view resolves regardless of the caller's cwd
-        # (e.g. dbt runs from the dbt/ directory).
-        glob = (settings.raw_dir / source).resolve().as_posix() + "/**/*.parquet"
-        con.execute(
-            f"CREATE OR REPLACE VIEW bronze.{source} AS "
-            f"SELECT * FROM read_parquet('{glob}', union_by_name=true)"
-        )
-        n = con.execute(f"SELECT count(*) FROM bronze.{source}").fetchone()[0]
-        log.info("bronze.%s -> %d rows", source, n)
-    con.close()
-
-
-def load_bigquery() -> None:  # pragma: no cover - requires cloud creds
-    raise SystemExit(
-        "BigQuery load: run `bq load --source_format=PARQUET "
-        f"{settings.bq_dataset_raw}.<source> gs://{settings.gcs_bucket}/raw/<source>/*` "
-        "for each source, or use the Airflow GCSToBigQueryOperator in "
-        "orchestration/airflow/dags/airhealth_pipeline.py."
-    )
-
-
 def load_databricks() -> None:  # pragma: no cover - runs on a Databricks cluster
-    """Read the parquet landing zone with Spark and write managed Delta tables.
-
-    Creates ``<catalog>.bronze.<source>`` Delta tables that the dbt-databricks
-    bronze sources read. Run on a cluster where ``DATA_DIR`` points at the Unity
-    Catalog volume the ingestion wrote to (e.g. /Volumes/airhealth/bronze/landing).
-    """
     from pyspark.sql import SparkSession
 
     spark = SparkSession.builder.getOrCreate()
@@ -69,12 +34,7 @@ def load_databricks() -> None:  # pragma: no cover - runs on a Databricks cluste
 
 
 def main() -> None:
-    if settings.backend == "bigquery":
-        load_bigquery()
-    elif settings.backend == "databricks":
-        load_databricks()
-    else:
-        load_duckdb()
+    load_databricks()
 
 
 if __name__ == "__main__":

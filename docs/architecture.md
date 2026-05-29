@@ -2,8 +2,8 @@
 
 ## Medallion architecture (Bronze → Silver → Gold)
 
-The warehouse follows the medallion pattern. Each layer is a separate schema
-(`bronze`, `silver`, `gold`) on every backend (DuckDB / BigQuery / Databricks):
+The warehouse follows the medallion pattern on Databricks (Delta + Unity
+Catalog). Each layer is a separate schema in the `airhealth` catalog:
 
 ```
 ingestion/ ──> BRONZE ──dbt──> SILVER ──dbt──> GOLD ──> DS models + BI dashboard
@@ -13,7 +13,7 @@ ingestion/ ──> BRONZE ──dbt──> SILVER ──dbt──> GOLD ──> 
 
 | Layer | Schema | Built by | Materialization | Contents |
 |---|---|---|---|---|
-| **Bronze** | `bronze` | `ingestion/` + `load_warehouse.py` | parquet→views (DuckDB) / Delta tables (Databricks) | Raw ingested data, as-landed, pydantic-validated. One table per source. |
+| **Bronze** | `bronze` | `ingestion/` + `load_warehouse.py` | Delta tables | Raw ingested data, as-landed, pydantic-validated. One table per source. |
 | **Silver** | `silver` | dbt (`models/silver/`) | views | Typed/cleaned (`stg_*`) and conformed/joined-to-grain (`int_*`). Plus the `metros` reference seed. |
 | **Gold** | `gold` | dbt (`models/gold/`) + `ds/` | tables | Business-ready star schema (`dim_*`, `fact_*`), the county analytical mart, and the DS prediction tables. |
 
@@ -21,8 +21,8 @@ ingestion/ ──> BRONZE ──dbt──> SILVER ──dbt──> GOLD ──> 
 
 1. **Ingestion (`ingestion/`)** → **Bronze.** Each source has a `sample`/`api`
    extractor; records are pydantic-validated (`common/schemas.py`) and written as
-   partitioned parquet (`common/io.py`). `load_warehouse.py` exposes them as the
-   `bronze` schema (DuckDB views over parquet; Databricks managed Delta tables).
+   partitioned parquet (`common/io.py`) to the bronze UC volume. `load_warehouse.py`
+   reads that parquet with Spark and writes the managed `bronze.*` Delta tables.
 
 2. **Silver (`dbt/models/silver/`).** `stg_*` cast/clean each bronze source;
    `int_*` pivot pollutants and join air quality + weather onto the metro/day
@@ -34,11 +34,11 @@ ingestion/ ──> BRONZE ──dbt──> SILVER ──dbt──> GOLD ──> 
 4. **Data Science (`ds/`)** reads **gold**, trains models, and writes predictions
    **back into gold** (reverse-ELT), so model output sits next to the facts.
 
-5. **Analysis (`dashboard/`)** reads **gold** only (Streamlit; or Looker Studio /
-   Databricks AI-BI on the same gold tables).
+5. **Analysis (`dashboard/`)** reads **gold** only (Streamlit via the Databricks
+   SQL connector; or a Databricks AI-BI dashboard on the same gold tables).
 
-6. **Orchestration & infra** — Airflow DAG / Databricks Workflow chain the steps;
-   Terraform provisions GCP; Docker + GitHub Actions make it reproducible.
+6. **Orchestration & CI** — a Databricks Workflow (`databricks.yml` Asset Bundle)
+   chains the steps; GitHub Actions runs lint + tests + an ingestion smoke check.
 
 ## What DS and DA consume (the gold contract)
 

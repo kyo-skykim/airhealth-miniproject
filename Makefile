@@ -1,35 +1,31 @@
-.PHONY: help install ingest load dbt models run-local dashboard test lint clean
-
-DBT_ENV = DBT_PROFILES_DIR=. DUCKDB_PATH=$(CURDIR)/data/warehouse.duckdb
+.PHONY: help install ingest lint test bundle-validate deploy run dashboard clean
 
 help:
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
 install: ## Install Python dependencies
 	pip install -r requirements.txt
 
-ingest: ## Extract sources -> raw parquet zone
+ingest: ## Extract sources -> parquet landing zone (sample mode, no cluster needed)
 	python -m ingestion.run_ingest
-
-load: ## Load raw parquet into the warehouse (DuckDB)
-	python -m ingestion.load_warehouse
-
-dbt: ## Run dbt build (transform + test)
-	cd dbt && $(DBT_ENV) dbt build
-
-models: ## Train DS models (forecast + regression)
-	python -m ds.run_models
-
-run-local: ingest load dbt models ## Full local pipeline end-to-end
-
-dashboard: ## Launch the Streamlit dashboard
-	streamlit run dashboard/app.py
-
-test: ## Run unit tests
-	pytest
 
 lint: ## Lint with ruff
 	ruff check .
 
-clean: ## Remove data + warehouse artifacts
+test: ## Run unit tests
+	pytest
+
+bundle-validate: ## Validate the Databricks Asset Bundle
+	databricks bundle validate
+
+deploy: ## Deploy the airhealth_pipeline Workflow to Databricks
+	databricks bundle deploy -t dev
+
+run: ## Run the airhealth_pipeline Workflow on Databricks
+	databricks bundle run airhealth_pipeline -t dev
+
+dashboard: ## Launch the Streamlit dashboard (connects to Databricks SQL)
+	streamlit run dashboard/app.py
+
+clean: ## Remove local parquet + dbt artifacts
 	rm -rf data dbt/target dbt/logs
